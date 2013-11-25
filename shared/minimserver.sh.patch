@@ -1,0 +1,65 @@
+--- minimserver.sh	2013-04-16 14:35:13.000000000 +0200
++++ minimserver.sh.new	2013-10-30 17:46:12.000000000 +0100
+@@ -69,19 +69,30 @@
+     NPTL=`/sbin/getcfg NPTL Install_Path -d none -f $CONF`
+     OUT_FILE="/tmp/minimserver-out.log"
+     /bin/touch "$OUT_FILE"
++
++    MINIM_STDIN_PIPE="/tmp/minimserver-stdin.pipe"
++    [ -e "$MINIM_STDIN_PIPE" ] && rm "$MINIM_STDIN_PIPE"
++    mknod -m a=rw "$MINIM_STDIN_PIPE" p
++
+ #   if [ "$ARCH" = "armv5tejl" ]; then
+     if [ "$MODEL" = "TS-109" ] || [ "$MODEL" = "TS-209" ] || [ "$MODEL" = "TS-409" ]; then
+         if [ "$NPTL" != "none" ] && [ -x "$NPTL/jre/bin/ld-linux.so.3" ]; then
+             info "starting MinimServer using NPTL libraries"
++            export "NPTL" "JRE" "OUT_FILE" "MINIM_STDIN_PIPE"
++            /usr/bin/tail -n 1 -f "$MINIM_STDIN_PIPE" | \
+             LANG=en_US.utf8 LD_LIBRARY_PATH=$NPTL/jre/lib/arm/client:$NPTL/jre/lib/arm:$NPTL/jre/../lib/arm:$NPTL/lib \
+-                $NPTL/jre/bin/ld-linux.so.3 $JRE/bin/java -jar ../lib/minimserver.jar --noconsole --nohup </dev/null >$OUT_FILE 2>&1 &
++                $NPTL/jre/bin/ld-linux.so.3 $JRE/bin/java -jar ../lib/minimserver.jar --nohup >$OUT_FILE 2>&1 &
+         else
+             info "starting MinimServer using libx09.so"
+-            LANG=en_US.utf8 LD_PRELOAD=$MINIMSERVER/x09/libx09.so $JRE/bin/java -jar ../lib/minimserver.jar --noconsole --nohup </dev/null >$OUT_FILE 2>&1 &
++            export "MINIMSERVER" "JRE" "OUT_FILE" "MINIM_STDIN_PIPE"
++            /usr/bin/tail -n 1 -f "$MINIM_STDIN_PIPE" | \
++            LANG=en_US.utf8 LD_PRELOAD=$MINIMSERVER/x09/libx09.so $JRE/bin/java -jar ../lib/minimserver.jar --nohup >$OUT_FILE 2>&1 &
+         fi
+     else
+         info "starting MinimServer"
+-        LANG=en_US.utf8 LD_LIBRARY_PATH=$MINIMSERVER/libsys $JRE/bin/java -jar ../lib/minimserver.jar --noconsole --nohup </dev/null >$OUT_FILE 2>&1 &
++        export "MINIMSERVER" "MINIM_STDIN_PIPE" "JRE" "OUT_FILE"
++        /usr/bin/tail -n 1 -f "$MINIM_STDIN_PIPE" | \
++        LANG="en_US.utf8" LD_LIBRARY_PATH="$MINIMSERVER/libsys" "$JRE/bin/java" -jar ../lib/minimserver.jar --nohup >"$OUT_FILE" 2>&1 &
+     fi
+     PID=$!
+     /bin/echo $PID >$PID_FILE
+@@ -94,14 +105,6 @@
+         /bin/rm "$OUT_PID_FILE"
+     fi
+     /bin/mv "$OUT_FILE" "$OUT_PID_FILE"
+-    if [ "$OUT_FIRST_LINE" != "" ] && [ "$OUT_FIRST_LINE" != "~-~" ]; then
+-        error "$QPKG_NAME start error: $OUT_FIRST_LINE"
+-        /bin/cat "$OUT_PID_FILE" >>$LOG_FILE
+-        sleep 15
+-        /sbin/setcfg $QPKG_NAME Enable FALSE -f /etc/config/qpkg.conf
+-        warning "$QPKG_NAME status set to disabled."
+-        exit 1
+-    fi
+ }
+ 
+ stop() {
+@@ -136,6 +139,13 @@
+             done
+         fi
+         /bin/rm "$PID_FILE"
++
++        # kill the tail process
++        TAIL_PID=$(ps -w | grep "^ *[0-9]* .*tail.*[m]inimserver-stdin.pipe" | awk '{print $1}')
++        [ -n "$TAIL_PID" ] && kill $TAIL_PID
++        # remove the named pipe
++        [ -e "$MINIM_STDIN_PIPE" ] && rm "$MINIM_STDIN_PIPE"
++
+     else
+         info "process not running"
+     fi
