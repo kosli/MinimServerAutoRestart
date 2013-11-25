@@ -1,5 +1,3 @@
-CONF=/etc/config/MinimServerRestart.conf
-
 ######################################################################
 # List of available definitions (it's not necessary to uncomment them)
 ######################################################################
@@ -108,10 +106,9 @@ CONF=/etc/config/MinimServerRestart.conf
 #PKG_PRE_REMOVE="{
 #}"
 #
-PKG_MAIN_REMOVE="{
-  $CMD_RM -f $CONF
-}"
-
+#PKG_MAIN_REMOVE="{
+#}"
+#
 #PKG_POST_REMOVE="{
 #}"
 #
@@ -136,16 +133,38 @@ PKG_MAIN_REMOVE="{
 #pkg_pre_install(){
 #}
 #
+
 pkg_install(){
-  if [ -f "$CONF" ]; then
-    $CMD_SED -i "s!\(QDK_VERSION=\).*!\1$QPKG_VER!" $CONF
-    $CMD_SED -i "s!\(QDK_PATH=\).*!\1$SYS_QPKG_DIR!" $CONF
-  else
-    $CMD_ECHO "QDK_VERSION=$QPKG_VER" > $CONF
-    $CMD_ECHO "QDK_PATH=$SYS_QPKG_DIR" >> $CONF
+  source /etc/profile
+
+  # check for inotifywait being available
+  which inotifywait > /dev/null
+  if [ $? -ne 0 ]; then
+     err_log "inotifywait is not available"
   fi
-  $CMD_CHMOD 644 $CONF
+
+  # check for patch being available
+  which patch > /dev/null
+  if [ $? -ne 0 ]; then
+     err_log "patch is not available"
+  fi
+
+  # apply the minimserver.sh.patch
+  MINIM_HOME=$(/sbin/getcfg MinimServer Install_Path -f /etc/config/qpkg.conf)
+  patch -N --silent $MINIM_HOME/minimserver.sh < $SYS_QPKG_DIR/minimserver.sh.patch >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+     err_log "The minimserver.sh.patch could not be applied. Please reinstall the MinimServer package first."
+  fi
+
+  /etc/init.d/minimserver.sh restart
+
 }
 
-#pkg_post_install(){
-#}
+pkg_post_install(){
+  RESTART_CONFIG=$SYS_QPKG_DIR/restart.config
+  echo "firstTimeout=2" > $RESTART_CONFIG
+  echo "restartTimeout=10" >> $RESTART_CONFIG
+  echo "restartBehaviour=forceRestart" >> $RESTART_CONFIG
+  echo "inotifyEvents=close_write,move,delete,create" >> $RESTART_CONFIG
+  echo "inotifyExclude=@eaDir|Thumbs\.db" >> $RESTART_CONFIG
+}

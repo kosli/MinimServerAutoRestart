@@ -39,19 +39,31 @@ case "$1" in
         exit 1
     fi
 
-#    source /etc/profile
-    
     # check for inotifywait being available
     which inotifywait > /dev/null
     if [ $? -ne 0 ]; then
-            echo "The inotifywait binary is not available. Please reinstall the MinimServer Auto Restart package."
+            echo "The inotifywait binary is not available. Please reinstall the MinimServer Restart package."
+            exit 1
+    fi
+
+    # check for patch being available
+    which patch > /dev/null
+    if [ $? -ne 0 ]; then
+            echo "The patch binary is not available. Please reinstall the MinimServer Restart package."
+            exit 1
+    fi
+
+    # check if the minimserver.sh.patch was applied
+    patch -N --dry-run --silent $MINIM_HOME/minimserver.sh < $RESTART_HOME/minimserver.sh.patch >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+            echo "The minimserver.sh.patch was not applied. Please reinstall the MinimServer Restart package."
             exit 1
     fi
     
     # grep pid of minimautorestart.sh
     PID=$(ps -w | grep "^ *[0-9]* minimaut.*[m]inimautorestart.*" | awk '{print $1}')
     if [ -n "$PID" ]; then
-            echo "MinimServer Auto Restart is already running."
+            echo "MinimServer Restart is already running."
             exit 1
     else
             # extract minimserver content directories
@@ -76,7 +88,7 @@ case "$1" in
             fi
               
             echo $(date) 
-            echo "Starting MinimServer Auto Restart service v${SYNOPKG_PKGVER}." # TODO
+            echo "Starting MinimServer Restart service."
         
             # extract inotify properties
             INOTIFY_EVENTS="$(parse_config inotifyEvents close_write,move,delete,create)"
@@ -98,8 +110,7 @@ case "$1" in
     ;;
 
   stop)
-    [ -n "$(ps -w | grep "^ *[0-9]* [m]inimaut")" ] && ps -w | grep "^ *[0-9]* [m]inimaut" | awk '{ print $1}' | xargs kill > /dev/null 2>&1
-    # if inotify has been invoked with root permissions, this has to be killed, too
+    [ -n "$(ps -w | grep "^ *[0-9]*.*[m]inimautorestart\.sh")" ] && ps -w | grep "^ *[0-9]*.*[m]inimautorestart\.sh" | awk '{ print $1}' | xargs kill > /dev/null 2>&1
     [ -n "$(ps -w | grep "^ *[0-9]* [a]dmin.*inotifywait -m -r -e")" ] && ps -w | grep "^ *[0-9]* [a]dmin.*inotifywait -m -r -e" | awk '{ print $1}' | xargs kill > /dev/null 2>&1
     sleep 4
     exit 0 
