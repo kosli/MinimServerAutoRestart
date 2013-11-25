@@ -1,3 +1,5 @@
+CONF=/etc/config/MinimServerRestart.conf
+
 ######################################################################
 # List of available definitions (it's not necessary to uncomment them)
 ######################################################################
@@ -106,9 +108,10 @@
 #PKG_PRE_REMOVE="{
 #}"
 #
-#PKG_MAIN_REMOVE="{
-#}"
-#
+PKG_MAIN_REMOVE="{
+  $CMD_RM -f $CONF
+}"
+
 #PKG_POST_REMOVE="{
 #}"
 #
@@ -133,8 +136,16 @@
 #pkg_pre_install(){
 #}
 #
-#pkg_install(){
-#}
-#
+pkg_install(){
+  if [ -f "$CONF" ]; then
+    $CMD_SED -i "s!\(QDK_VERSION=\).*!\1$QPKG_VER!" $CONF
+    $CMD_SED -i "s!\(QDK_PATH=\).*!\1$SYS_QPKG_DIR!" $CONF
+  else
+    $CMD_ECHO "QDK_VERSION=$QPKG_VER" > $CONF
+    $CMD_ECHO "QDK_PATH=$SYS_QPKG_DIR" >> $CONF
+  fi
+  $CMD_CHMOD 644 $CONF
+}
+
 #pkg_post_install(){
 #}
