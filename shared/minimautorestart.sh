@@ -37,7 +37,7 @@ minimserver_out ()
 	# when PID_FILE is empty, it must be assumed that MinimServer is not running
 	[ -z "$PID" ] && return 4
 	# check whether a process with the PID from PID_FILE is run by the daemon user
-	PID_CHECK=$(ps | grep "$PID" | grep "minimser") > /dev/null
+	PID_CHECK=$(ps | grep "$PID" | grep "mserver") > /dev/null
 	# if not, MinimServer is not running
 	[ -z "$PID_CHECK" ] && return 4
 	
@@ -179,7 +179,7 @@ do
 	# take action depending on the MinimServer status
 	if echo $STATUSLINE | grep -q 'is running'; then
 		echo "Restarting now..." >> $RESTART_LOG
-		echo "restart" > $MINIM_STDIN_PIPE
+		echo "rescan" > $MINIM_STDIN_PIPE
 	elif echo $STATUSLINE | grep -q 'stopped\|stopping\|closing\|exiting'; then
 		echo "No restart will be issued." >> $RESTART_LOG
 	elif echo $STATUSLINE | grep -q 'starting\|restarting'; then				
@@ -190,7 +190,7 @@ do
 				echo "Stopping and restarting now..." >> $RESTART_LOG
 				echo "stop" > $MINIM_STDIN_PIPE
 				sleep 2
-				echo "restart" > $MINIM_STDIN_PIPE
+				echo "rescan" > $MINIM_STDIN_PIPE
 			;;
 			"awaitRunning")
 				echo "Waiting 10 seconds..." >> $RESTART_LOG
@@ -237,7 +237,7 @@ do
 					
 					if echo $STATUSLINE | grep -q 'is running'; then
 						echo "MinimServer is running. Restarting now..." >> $RESTART_LOG
-						echo "restart" > $MINIM_STDIN_PIPE
+						echo "rescan" > $MINIM_STDIN_PIPE
 						STATUS="true"
 					elif echo $STATUSLINE | grep -q 'stopped\|stopping\|closing\|exiting'; then
 						echo "MinimServer is stopped. No restart will be issued." >> $RESTART_LOG
