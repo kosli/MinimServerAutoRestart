@@ -16,7 +16,6 @@ ERROR_LOG="$RESTART_HOME"/inotify-stderr.log
 MINIM_HOME=$(/sbin/getcfg MinimServer Install_Path -d FALSE -f $CONF)
 MINIM_CONFIG="$MINIM_HOME/data/minimserver.config"
 
-MINIM_STDIN_PIPE="/tmp/minimserver-stdin.pipe"
 MINIM_PID_FILE="/var/run/minimserver.pid"
 PID=`cat $MINIM_PID_FILE`
 MINIM_OUT_LOG="/tmp/minimserver-out-$PID.log"
@@ -40,14 +39,6 @@ minimserver_out ()
 	PID_CHECK=$(ps | grep "$PID" | grep "mserver") > /dev/null
 	# if not, MinimServer is not running
 	[ -z "$PID_CHECK" ] && return 4
-	
-	if [ -p $MINIM_STDIN_PIPE ]; then
-		# do in background to avoid the package to hang in some rare cases
-		echo "about" > $MINIM_STDIN_PIPE &
-	else
-		# minimstdinpipe is not available
-		return 1
-	fi
 	
 	if [ -e $MINIM_OUT_LOG ]; then
 		COUNTER=$STATUS_REQUEST_TIMEOUT
@@ -179,90 +170,12 @@ do
 	# take action depending on the MinimServer status
 	if echo $STATUSLINE | grep -q 'is running'; then
 		echo "Restarting now..." >> $RESTART_LOG
-		echo "rescan" > $MINIM_STDIN_PIPE
+		# echo "rescan" > $MINIM_STDIN_PIPE
+		curl --silent --data "sub=Rescan" http://127.0.0.1:9790 -o /dev/null
 	elif echo $STATUSLINE | grep -q 'stopped\|stopping\|closing\|exiting'; then
 		echo "No restart will be issued." >> $RESTART_LOG
-	elif echo $STATUSLINE | grep -q 'starting\|restarting'; then				
-		# MinimServer is currently starting. Evaluate the restartBehaviour property.
-		echo "The restartBehaviour property is set to ${RESTART_BEHAVIOUR}." >> $RESTART_LOG
-		case "$RESTART_BEHAVIOUR" in
-			"forceRestart")
-				echo "Stopping and restarting now..." >> $RESTART_LOG
-				echo "stop" > $MINIM_STDIN_PIPE
-				sleep 2
-				echo "rescan" > $MINIM_STDIN_PIPE
-			;;
-			"awaitRunning")
-				echo "Waiting 10 seconds..." >> $RESTART_LOG
-				sleep $STATUS_RUNNING_RETRY_TIMEOUT
-				
-				STATUS="false"
-				while [ "$STATUS" == "false" ]
-				do
-					# retrieve the MinimServer status
-					#######################################
-					STATUS_REQUEST_FLAG=1
-					COUNTER=$STATUS_REQUEST_TRIES
-					while [ "$STATUS_REQUEST_FLAG" -ne "0" -a "$COUNTER" -ne "0" ]
-					do
-						STATUSLINE="$(minimserver_out)"
-						STATUS_REQUEST_FLAG=$?
-						case "$STATUS_REQUEST_FLAG" in
-							"1")
-								echo "minimstdinpipe is not available. Please install the MinimServer package 0.63.3 or above." >> $RESTART_LOG
-								STATUSLINE="empty"
-								# MinimServer seems to be to old (or minimstdinpipe has been accidentally deleted), no need to retry
-								COUNTER=1
-							;;
-							"2")
-								echo "MinimServer seems to be not responsive. Trying again $COUNTER times..." >> $RESTART_LOG
-								STATUSLINE="empty"
-								sleep 2
-							;;
-							"3")
-								echo "The file $MINIM_OUT_LOG is not available. Trying again $COUNTER times..." >> $RESTART_LOG
-								STATUSLINE="empty"
-								sleep 2
-							;;
-							"4")
-								echo "MinimServer seems not to be running." >> $RESTART_LOG
-								STATUSLINE="empty"
-								# MinimServer is not running, no need to retry
-								COUNTER=1
-							;;
-						esac
-						let COUNTER=COUNTER-1
-					done
-					#######################################
-					
-					if echo $STATUSLINE | grep -q 'is running'; then
-						echo "MinimServer is running. Restarting now..." >> $RESTART_LOG
-						echo "rescan" > $MINIM_STDIN_PIPE
-						STATUS="true"
-					elif echo $STATUSLINE | grep -q 'stopped\|stopping\|closing\|exiting'; then
-						echo "MinimServer is stopped. No restart will be issued." >> $RESTART_LOG
-						STATUS="true"
-					elif echo $STATUSLINE | grep -q 'starting\|restarting'; then
-						echo "MinimServer is still starting. Waiting another 10 seconds..." >> $RESTART_LOG
-						sleep $STATUS_RUNNING_RETRY_TIMEOUT
-					else
-						echo "MinimServer status could not be retrieved. Do nothing." >> $RESTART_LOG
-						if [ -n "$STATUS_OUTPUT" ]; then
-							echo "##############################" >> $RESTART_LOG
-							echo "$STATUS_OUTPUT" >> $RESTART_LOG
-							echo "##############################" >> $RESTART_LOG
-						fi
-						STATUS="true"
-					fi
-				done
-			;;
-			"doNothing")
-				echo "MinimServer is starting. Do nothing." >> $RESTART_LOG
-			;;
-			*)
-				echo "$RESTART_BEHAVIOUR is not a valid option. Do nothing." >> $RESTART_LOG
-			;;
-		esac
+	elif echo $STATUSLINE | grep -q 'starting\|restarting'; then
+			echo "MinimServer is starting. Do nothing." >> $RESTART_LOG
 	else
 		echo "MinimServer status could not be retrieved. Do nothing." >> $RESTART_LOG
 		if [ -n "$STATUS_OUTPUT" ]; then

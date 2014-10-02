@@ -142,22 +142,6 @@ pkg_install(){
   if [ $? -ne 0 ]; then
      err_log "inotifywait is not available"
   fi
-
-  # check for patch being available
-  which patch > /dev/null
-  if [ $? -ne 0 ]; then
-     err_log "patch is not available"
-  fi
-
-  # apply the minimserver.sh.patch
-  MINIM_HOME=$(/sbin/getcfg MinimServer Install_Path -f /etc/config/qpkg.conf)
-  patch -N --silent $MINIM_HOME/minimserver.sh < $SYS_QPKG_DIR/minimserver.sh.patch >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-     err_log "The minimserver.sh.patch could not be applied. Please reinstall the MinimServer package first."
-  fi
-
-  /etc/init.d/minimserver.sh restart
-
 }
 
 pkg_post_install(){

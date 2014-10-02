@@ -46,20 +46,6 @@ case "$1" in
             exit 1
     fi
 
-    # check for patch being available
-    which patch > /dev/null
-    if [ $? -ne 0 ]; then
-            echo "The patch binary is not available. Please reinstall the MinimServer Restart package."
-            exit 1
-    fi
-
-    # check if the minimserver.sh.patch was applied
-    patch -N --dry-run --silent $MINIM_HOME/minimserver.sh < $RESTART_HOME/minimserver.sh.patch >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-            echo "The minimserver.sh.patch was not applied. Please reinstall the MinimServer Restart package."
-            exit 1
-    fi
-    
     # grep pid of minimautorestart.sh
     PID=$(ps -w | grep "^ *[0-9]* minimaut.*[m]inimautorestart.*" | awk '{print $1}')
     if [ -n "$PID" ]; then
